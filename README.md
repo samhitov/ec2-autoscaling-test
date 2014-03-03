@@ -1,17 +1,25 @@
 # ec2-autoscaling-test
 
-### Instance information
+Demonstrate AWS auto-scaling using a simple node.js web server
+
+## Todo
+
+* Start node.js on boot, so autoscaling is useful
+* Put webs behind an ELB
+* Make the node.js code do something taxing enough so external requests can cause load
+
+### Instance Information
 
 * Region: us-east-1
 * AZ: us-east-1d
-* AMI: 
+* AMI: ami-c1575aa8
     * based on Amazon Linux AMI 2013.09.2 - ami-bba18dd2 (just with a simple node.js server installed)
 * Size: t1.micro
 * Root storage: EBS
 * Security group
     * Name: sshandhttp
     * ID: sg-4dedf426
-    * Rules: ports 22 and 80 are open to the world
+    * Rules: ports 22 and 80 are open to the world (well, right now everything is open to the world while I test :p)
 
 ### AMI setup
 
@@ -36,7 +44,7 @@ From the base Amazon Linux AMI, run:
 
 #### Test
 
-Note: Anything on 80 requires sudo. Standard practice seems to be to use something like 8080, then forward 80 to 8080.
+Note: Anything using port 80 requires sudo. Standard practice seems to avoid this by running node on a nonstandard port like 8080, then forwarding 80 to 8080.
 
 Test with a simple example adapted from http://nodejs.org:
 
@@ -58,3 +66,26 @@ iptables was giving me trouble, not sure why. I'm just shutting it off for now, 
 
     sudo service iptables stop
     sudo forever start -al forever.log -ao out.log -ae err.log example.js
+
+### Auto Scaling
+
+Launch configuration is as described above in Instance Information.
+
+Security group is defined as:
+
+* min: 1 instance
+* max: 2 instances
+* execute policy: when average CPU Utilization >= 10% over 300 seconds
+    * increase group size by 1 instance
+    * wait 60 seconds before allowing another scaling activity
+* execute policy: when average CPU Utilization < 10% over 300 seconds
+    * decrease group size by 1 instance
+    * wait 60 seconds before allowing another scaling activity
+
+#### Test Auto Scaling
+
+This is a t1.micro, so I can tax it with just about anything in a while loop, i.e.:
+
+    while true; do sudo du /; done
+
+Confirmed with scaling history that a new instance was added. Killed the 'du's, and an instance was terminated 5 minutes later.
