@@ -15,8 +15,9 @@
 
 ### AMI setup
 
-Note: haven't used node.js before, so I'm taking liberally from http://iconof.com/blog/how-to-install-setup-node-js-on-amazon-aws-ec2-complete-guide
+#### Install
 
+Note: haven't used node.js before, so I'm taking liberally from http://iconof.com/blog/how-to-install-setup-node-js-on-amazon-aws-ec2-complete-guide
 
 From the base Amazon Linux AMI, run:
 
@@ -33,16 +34,27 @@ From the base Amazon Linux AMI, run:
 	# can use this to hackishly start a running server
 	sudo npm install forever -g
 
-Test with the simple example from http://nodejs.org:
+#### Test
+
+Note: Anything on 80 requires sudo. Standard practice seems to be to use something like 8080, then forward 80 to 8080.
+
+Test with a simple example adapted from http://nodejs.org:
 
     var http = require('http');
     http.createServer(function (req, res) {
       res.writeHead(200, {'Content-Type': 'text/plain'});
       res.end('Hello World\\n');
-    }).listen(8080, '127.0.0.1');
-    console.log('Server running at http://127.0.0.1:8080/');
+    }).listen(80);
+    console.log('Server is running');
 
 Save as example.js, then run:
 
-    node example.js
-    Server running at http://127.0.0.1:8080/
+    sudo node example.js
+    Server is running
+
+#### Keep node.js running using forever
+
+iptables was giving me trouble, not sure why. I'm just shutting it off for now, while I get the test working.
+
+    sudo service iptables stop
+    sudo forever start -al forever.log -ao out.log -ae err.log example.js
