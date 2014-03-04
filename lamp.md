@@ -4,11 +4,13 @@ Demonstrate AWS auto-scaling using a LAMP web server with a simple php script
 
 ## Todo
 
+* Provide a CloudFormation template or AWS CLI commands to set this up from scratch
+
 ### Instance Information
 
 * Region: us-east-1
-* AZ: us-east-1d
-* AMI: ami-abd8d5c2
+* AZ: us-east-1a
+* AMI: ami-cbd1dca2
     * based on Amazon Linux AMI 2013.09.2 - ami-bba18dd2
 * Size: t1.micro
 * Root storage: EBS
@@ -21,10 +23,10 @@ Demonstrate AWS auto-scaling using a LAMP web server with a simple php script
 
 * Scheme: internet-facing
 * Port Configuration: 80 (HTTP) forwarding to 80 (HTTP)
-* Ping Target: HTTP:80:/phpinfo.php
+* Ping Target: HTTP:80:/index.html
 * Unhealthy Threshold: 2
 * Timeout: 5
-* Healthy Threshold: 10
+* Healthy Threshold: 2
 * Interval: 0.5
 
 ### AMI setup
@@ -48,8 +50,9 @@ From the base Amazon Linux AMI, run the following as root (or add to the instanc
 	find /var/www -type d -exec chmod 2775 {} +
 	find /var/www -type f -exec chmod 0664 {} +
 	echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+	echo '<!DOCTYPE html><html><body><p>Index page.</p></body></html>'' > /var/www/html/index.html
 
-Since I have port 80 open, http://my.public.dns.amazonaws.com/phpinfo.php returns the PHP information.
+Since I have port 80 open, http://my.public.dns.amazonaws.com/phpinfo.php returns the PHP information, and http://my.public.dns.amazonaws.com returns a boring index page.
 
 #### Add a CPU-intensive PHP script
 
@@ -63,22 +66,28 @@ Or run the following as root to create the file.
 
 A quick test in my browser shows that http://my.public.dns.amazonaws.com/stress.php will bring CPU User above 99% for about 15 seconds.
 
-If we tell our Auto Scaling group to add a new instance whenever the average of CPU utilization is greater than 10% over 1 minute, a single call to stress.php should trigger an additional instance.
-
 ### Auto Scaling
 
 Launch configuration is as described above in Instance Information. The Elastic Load Balancer should be provisioned before creating the Auto Scaling group.
 
 Scaling group is defined as:
 
-* min: 1 instance
-* max: 2 instances
-* execute policy: when average CPU Utilization >= 10% over 60 seconds
-    * increase group size by 1 instance
-    * wait 60 seconds before allowing another scaling activity
-* execute policy: when average CPU Utilization < 10% over 60 seconds
-    * decrease group size by 1 instance
-    * wait 60 seconds before allowing another scaling activity
+* Auto Scaling Group Details
+    * Group name: lamp-test
+    * Group size: 1
+    * Minimum Group Size: 1
+    * Maximum Group Size: 2
+    * Availability Zone(s): us-east-1a
+    * Load Balancers: auto-scaling-elb
+    * Health Check Type: EC2
+    * Health Check Grace Period: 300
+    * Detailed Monitoring: No
+* Scaling Policies
+    * Increase Group Size: CPU Utilization > 10% for 300 seconds; Add 1 instances and 300 seconds between activities
+    * Decrease Group Size: CPU Utilization < 5% for 300 seconds; Remove 1 instances and 300 seconds between activities
+
+Note: "auto-scaling-elb" identifies my Elastic Load Balancer, but the name has no special meaning.
 
 #### Test Auto Scaling
 
+Just open http://elb-hostname.us-east-1.elb.amazonaws.com/stress.php twice (at the same time) in a browser. curl should also work.
